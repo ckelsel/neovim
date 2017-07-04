@@ -209,7 +209,7 @@ open_buffer (
     int save_bin = curbuf->b_p_bin;
     int perm;
 
-    perm = mch_getperm(curbuf->b_ffname);
+    perm = os_getperm((const char *)curbuf->b_ffname);
     if (perm >= 0 && (0
 # ifdef S_ISFIFO
           || S_ISFIFO(perm)
