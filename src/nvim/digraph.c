@@ -1360,10 +1360,10 @@ static digr_T digraphdefault[] =
   { 's', 't', 0xfb06 },
 
   // extra alternatives, easier to remember
-  {'W', '`', 0x1e80},
-  {'w', '`', 0x1e81},
-  {'Y', '`', 0x1ef2},
-  {'y', '`', 0x1ef3},
+  { 'W', '`', 0x1e80 },
+  { 'w', '`', 0x1e81 },
+  { 'Y', '`', 0x1ef2 },
+  { 'y', '`', 0x1ef3 },
 
   // Vim 5.x compatible digraphs that don't conflict with the above
   { '~', '!', 161 },  // ¡
