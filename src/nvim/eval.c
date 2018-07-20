@@ -693,8 +693,8 @@ int func_level(void *cookie)
 /* pointer to funccal for currently active function */
 funccall_T *current_funccal = NULL;
 
-/* pointer to list of previously used funccal, still around because some
- * item in it is still being used. */
+// Pointer to list of previously used funccal, still around because some
+// item in it is still being used.
 funccall_T *previous_funccal = NULL;
 
 /*
@@ -4513,9 +4513,7 @@ eval_index(
             item = TV_LIST_ITEM_NEXT(rettv->vval.v_list, item);
           }
           tv_clear(rettv);
-          rettv->v_type = VAR_LIST;
-          rettv->vval.v_list = l;
-          tv_list_ref(l);
+          tv_list_set_ret(rettv, l);
         } else {
           tv_copy(TV_LIST_ITEM_TV(tv_list_find(rettv->vval.v_list, n1)), &var1);
           tv_clear(rettv);
@@ -4899,9 +4897,7 @@ failret:
 
   *arg = skipwhite(*arg + 1);
   if (evaluate) {
-    rettv->v_type = VAR_LIST;
-    rettv->vval.v_list = l;
-    tv_list_ref(l);
+    tv_list_set_ret(rettv, l);
   }
 
   return OK;
@@ -5626,9 +5622,7 @@ failret:
 
   *arg = skipwhite(*arg + 1);
   if (evaluate) {
-    rettv->v_type = VAR_DICT;
-    rettv->vval.v_dict = d;
-    ++d->dv_refcount;
+    tv_dict_set_ret(rettv, d);
   }
 
   return OK;
@@ -8225,8 +8219,7 @@ static void f_expand(typval_T *argvars, typval_T *rettv, FunPtr fptr)
       && argvars[2].v_type != VAR_UNKNOWN
       && tv_get_number_chk(&argvars[2], &error)
       && !error) {
-    rettv->v_type = VAR_LIST;
-    rettv->vval.v_list = NULL;
+    tv_list_set_ret(rettv, NULL);
   }
 
   const char *s = tv_get_string(&argvars[0]);
@@ -9111,11 +9104,7 @@ static void f_get(typval_T *argvars, typval_T *rettv, FunPtr fptr)
           func_ref(rettv->vval.v_string);
         }
       } else if (strcmp(what, "dict") == 0) {
-        rettv->v_type = VAR_DICT;
-        rettv->vval.v_dict = pt->pt_dict;
-        if (pt->pt_dict != NULL) {
-          (pt->pt_dict->dv_refcount)++;
-        }
+        tv_dict_set_ret(rettv, pt->pt_dict);
       } else if (strcmp(what, "args") == 0) {
         rettv->v_type = VAR_LIST;
         if (tv_list_alloc_ret(rettv, pt->pt_argc) != NULL) {
@@ -9366,9 +9355,7 @@ static void f_getbufvar(typval_T *argvars, typval_T *rettv, FunPtr fptr)
         dict_T *opts = get_winbuf_options(true);
 
         if (opts != NULL) {
-          rettv->v_type = VAR_DICT;
-          rettv->vval.v_dict = opts;
-          opts->dv_refcount++;
+          tv_dict_set_ret(rettv, opts);
           done = true;
         }
       } else if (get_option_tv(&varname, rettv, true) == OK) {
@@ -10419,9 +10406,7 @@ getwinvar(
           dict_T *opts = get_winbuf_options(false);
 
           if (opts != NULL) {
-            rettv->v_type = VAR_DICT;
-            rettv->vval.v_dict = opts;
-            opts->dv_refcount++;
+            tv_dict_set_ret(rettv, opts);
             done = true;
           }
         } else if (get_option_tv(&varname, rettv, 1) == OK) {
@@ -10471,8 +10456,7 @@ static void f_glob(typval_T *argvars, typval_T *rettv, FunPtr fptr)
     }
     if (argvars[2].v_type != VAR_UNKNOWN) {
       if (tv_get_number_chk(&argvars[2], &error)) {
-        rettv->v_type = VAR_LIST;
-        rettv->vval.v_list = NULL;
+        tv_list_set_ret(rettv, NULL);
       }
       if (argvars[3].v_type != VAR_UNKNOWN
           && tv_get_number_chk(&argvars[3], &error)) {
@@ -10520,8 +10504,7 @@ static void f_globpath(typval_T *argvars, typval_T *rettv, FunPtr fptr)
 
     if (argvars[3].v_type != VAR_UNKNOWN) {
       if (tv_get_number_chk(&argvars[3], &error)) {
-        rettv->v_type = VAR_LIST;
-        rettv->vval.v_list = NULL;
+        tv_list_set_ret(rettv, NULL);
       }
       if (argvars[4].v_type != VAR_UNKNOWN
           && tv_get_number_chk(&argvars[4], &error)) {
@@ -13590,9 +13573,7 @@ static void f_reverse(typval_T *argvars, typval_T *rettv, FunPtr fptr)
   } else if (!tv_check_lock(tv_list_locked((l = argvars[0].vval.v_list)),
                             N_("reverse() argument"), TV_TRANSLATE)) {
     tv_list_reverse(l);
-    rettv->vval.v_list = l;
-    rettv->v_type = VAR_LIST;
-    tv_list_ref(l);
+    tv_list_set_ret(rettv, l);
   }
 }
 
@@ -15351,9 +15332,7 @@ static void do_sort_uniq(typval_T *argvars, typval_T *rettv, bool sort)
     if (tv_check_lock(tv_list_locked(l), arg_errmsg, TV_TRANSLATE)) {
       goto theend;
     }
-    rettv->vval.v_list = l;
-    rettv->v_type = VAR_LIST;
-    tv_list_ref(l);
+    tv_list_set_ret(rettv, l);
 
     len = tv_list_len(l);
     if (len <= 1) {
@@ -16330,8 +16309,7 @@ static void f_synconcealed(typval_T *argvars, typval_T *rettv, FunPtr fptr)
   int matchid = 0;
   char_u str[NUMBUFLEN];
 
-  rettv->v_type = VAR_LIST;
-  rettv->vval.v_list = NULL;
+  tv_list_set_ret(rettv, NULL);
 
   // -1 on type error (both)
   const linenr_T lnum = tv_get_lnum(argvars);
@@ -16368,8 +16346,7 @@ static void f_synconcealed(typval_T *argvars, typval_T *rettv, FunPtr fptr)
  */
 static void f_synstack(typval_T *argvars, typval_T *rettv, FunPtr fptr)
 {
-  rettv->v_type = VAR_LIST;
-  rettv->vval.v_list = NULL;
+  tv_list_set_ret(rettv, NULL);
 
   // -1 on type error (both)
   const linenr_T lnum = tv_get_lnum(argvars);
@@ -17675,7 +17652,7 @@ static void f_wordcount(typval_T *argvars, typval_T *rettv, FunPtr fptr)
 /// "writefile()" function
 static void f_writefile(typval_T *argvars, typval_T *rettv, FunPtr fptr)
 {
-  rettv->vval.v_number = 0;  // Assuming success.
+  rettv->vval.v_number = -1;
 
   if (check_restricted() || check_secure()) {
     return;
@@ -17685,6 +17662,12 @@ static void f_writefile(typval_T *argvars, typval_T *rettv, FunPtr fptr)
     EMSG2(_(e_listarg), "writefile()");
     return;
   }
+  const list_T *const list = argvars[0].vval.v_list;
+  TV_LIST_ITER_CONST(list, li, {
+    if (!tv_check_str_or_nr(TV_LIST_ITEM_TV(li))) {
+      return;
+    }
+  });
 
   bool binary = false;
   bool append = false;
@@ -17716,7 +17699,6 @@ static void f_writefile(typval_T *argvars, typval_T *rettv, FunPtr fptr)
   }
   FileDescriptor fp;
   int error;
-  rettv->vval.v_number = -1;
   if (*fname == NUL) {
     EMSG(_("E482: Can't open file with an empty name"));
   } else if ((error = file_open(&fp, fname,
@@ -17725,7 +17707,7 @@ static void f_writefile(typval_T *argvars, typval_T *rettv, FunPtr fptr)
     emsgf(_("E482: Can't open file %s for writing: %s"),
           fname, os_strerror(error));
   } else {
-    if (write_list(&fp, argvars[0].vval.v_list, binary)) {
+    if (write_list(&fp, list, binary)) {
       rettv->vval.v_number = 0;
     }
     if ((error = file_close(&fp, do_fsync)) != 0) {
@@ -19602,6 +19584,7 @@ static const char *find_option_end(const char **const arg, int *const opt_flags)
 void ex_function(exarg_T *eap)
 {
   char_u      *theline;
+  char_u      *line_to_free = NULL;
   int c;
   int saved_did_emsg;
   int saved_wait_return = need_wait_return;
@@ -19833,7 +19816,6 @@ void ex_function(exarg_T *eap)
 
   /* When there is a line break use what follows for the function body.
    * Makes 'exe "func Test()\n...\nendfunc"' work. */
-  const char *const end = (const char *)p + STRLEN(p);
   if (*p == '\n') {
     line_arg = p + 1;
   } else if (*p != NUL && *p != '"' && !eap->skip && !did_emsg) {
@@ -19883,12 +19865,18 @@ void ex_function(exarg_T *eap)
         *p = NUL;
         line_arg = p + 1;
       }
-    } else if (eap->getline == NULL)
-      theline = getcmdline(':', 0L, indent);
-    else
-      theline = eap->getline(':', eap->cookie, indent);
-    if (KeyTyped)
+    } else {
+      xfree(line_to_free);
+      if (eap->getline == NULL) {
+        theline = getcmdline(':', 0L, indent);
+      } else {
+        theline = eap->getline(':', eap->cookie, indent);
+      }
+      line_to_free = theline;
+    }
+    if (KeyTyped) {
       lines_left = Rows - 1;
+    }
     if (theline == NULL) {
       EMSG(_("E126: Missing :endfunction"));
       goto erret;
@@ -19920,25 +19908,24 @@ void ex_function(exarg_T *eap)
         if (*p == '!') {
           p++;
         }
-        const char *const comment_start = strchr((const char *)p, '"');
-        const char *const endfunc_end = (comment_start
-                                         ? strchr(comment_start, '\n')
-                                         : strpbrk((const char *)p, "\n|"));
-        p = (endfunc_end
-             ? (char_u *)endfunc_end
-             : p + STRLEN(p));
+        char_u *nextcmd = NULL;
         if (*p == '|') {
-          emsgf(_(e_trailing2), p);
-          if (line_arg == NULL) {
-            xfree(theline);
-          }
-          goto erret;
+          nextcmd = p + 1;
+        } else if (line_arg != NULL && *skipwhite(line_arg) != NUL) {
+          nextcmd = line_arg;
+        } else if (*p != NUL && *p != '"' && p_verbose > 0) {
+          give_warning2((char_u *)_("W22: Text found after :endfunction: %s"),
+                        p, true);
         }
-        if (line_arg == NULL) {
-          xfree(theline);
-        } else {
-          if ((const char *)p < end) {
-            eap->nextcmd = p + 1;
+        if (nextcmd != NULL) {
+          // Another command follows. If the line came from "eap" we
+          // can simply point into it, otherwise we need to change
+          // "eap->cmdlinep".
+          eap->nextcmd = nextcmd;
+          if (line_to_free != NULL) {
+            xfree(*eap->cmdlinep);
+            *eap->cmdlinep = line_to_free;
+            line_to_free = NULL;
           }
         }
         break;
@@ -20015,11 +20002,7 @@ void ex_function(exarg_T *eap)
      * allocates 250 bytes per line, this saves 80% on average.  The cost
      * is an extra alloc/free. */
     p = vim_strsave(theline);
-    if (line_arg == NULL)
-      xfree(theline);
-    theline = p;
-
-    ((char_u **)(newlines.ga_data))[newlines.ga_len++] = theline;
+    ((char_u **)(newlines.ga_data))[newlines.ga_len++] = p;
 
     /* Add NULL lines for continuation lines, so that the line count is
      * equal to the index in the growarray.   */
@@ -20184,6 +20167,7 @@ errret_2:
   ga_clear_strings(&newlines);
 ret_free:
   xfree(skip_until);
+  xfree(line_to_free);
   xfree(fudi.fd_newkey);
   xfree(name);
   did_emsg |= saved_did_emsg;
@@ -20505,6 +20489,12 @@ void free_all_functions(void)
   uint64_t skipped = 0;
   uint64_t todo = 1;
   uint64_t used;
+
+  // Clean up the call stack.
+  while (current_funccal != NULL) {
+    tv_clear(current_funccal->rettv);
+    cleanup_function_call(current_funccal);
+  }
 
   // First clear what the functions contain. Since this may lower the
   // reference count of a function, it may also free a function and change
@@ -21168,6 +21158,7 @@ void call_user_func(ufunc_T *fp, int argcount, typval_T *argvars,
   proftime_T wait_start;
   proftime_T call_start;
   bool did_save_redo = false;
+  save_redo_T save_redo;
 
   /* If depth of calling is getting too high, don't execute the function */
   if (depth >= p_mfd) {
@@ -21180,7 +21171,7 @@ void call_user_func(ufunc_T *fp, int argcount, typval_T *argvars,
   // Save search patterns and redo buffer.
   save_search_patterns();
   if (!ins_compl_active()) {
-    saveRedobuff();
+    saveRedobuff(&save_redo);
     did_save_redo = true;
   }
   ++fp->uf_calls;
@@ -21485,30 +21476,9 @@ void call_user_func(ufunc_T *fp, int argcount, typval_T *argvars,
   }
 
   did_emsg |= save_did_emsg;
-  current_funccal = fc->caller;
-  --depth;
+  depth--;
 
-  // If the a:000 list and the l: and a: dicts are not referenced and there
-  // is no closure using it, we can free the funccall_T and what's in it.
-  if (!fc_referenced(fc)) {
-    free_funccal(fc, false);
-  } else {
-    // "fc" is still in use.  This can happen when returning "a:000",
-    // assigning "l:" to a global variable or defining a closure.
-    // Link "fc" in the list for garbage collection later.
-    fc->caller = previous_funccal;
-    previous_funccal = fc;
-
-    // Make a copy of the a: variables, since we didn't do that above.
-    TV_DICT_ITER(&fc->l_avars, di, {
-      tv_copy(&di->di_tv, &di->di_tv);
-    });
-
-    // Make a copy of the a:000 items, since we didn't do that above.
-    TV_LIST_ITER(&fc->l_varlist, li, {
-      tv_copy(TV_LIST_ITEM_TV(li), TV_LIST_ITEM_TV(li));
-    });
-  }
+  cleanup_function_call(fc);
 
   if (--fp->uf_calls <= 0 && fp->uf_refcount <= 0) {
     // Function was unreferenced while being used, free it now.
@@ -21516,7 +21486,7 @@ void call_user_func(ufunc_T *fp, int argcount, typval_T *argvars,
   }
   // restore search patterns and redo buffer
   if (did_save_redo) {
-    restoreRedobuff();
+    restoreRedobuff(&save_redo);
   }
   restore_search_patterns();
 }
@@ -21599,6 +21569,35 @@ free_funccal(
 
   func_ptr_unref(fc->func);
   xfree(fc);
+}
+
+/// Handle the last part of returning from a function: free the local hashtable.
+/// Unless it is still in use by a closure.
+static void cleanup_function_call(funccall_T *fc)
+{
+  current_funccal = fc->caller;
+
+  // If the a:000 list and the l: and a: dicts are not referenced and there
+  // is no closure using it, we can free the funccall_T and what's in it.
+  if (!fc_referenced(fc)) {
+    free_funccal(fc, false);
+  } else {
+    // "fc" is still in use.  This can happen when returning "a:000",
+    // assigning "l:" to a global variable or defining a closure.
+    // Link "fc" in the list for garbage collection later.
+    fc->caller = previous_funccal;
+    previous_funccal = fc;
+
+    // Make a copy of the a: variables, since we didn't do that above.
+    TV_DICT_ITER(&fc->l_avars, di, {
+      tv_copy(&di->di_tv, &di->di_tv);
+    });
+
+    // Make a copy of the a:000 items, since we didn't do that above.
+    TV_LIST_ITER(&fc->l_varlist, li, {
+      tv_copy(TV_LIST_ITEM_TV(li), TV_LIST_ITEM_TV(li));
+    });
+  }
 }
 
 /*

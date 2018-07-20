@@ -3034,9 +3034,9 @@ static void syn_cmd_conceal(exarg_T *eap, int syncing)
   next = skiptowhite(arg);
   if (*arg == NUL) {
     if (curwin->w_s->b_syn_conceal) {
-      MSG(_("syn conceal on"));
+      MSG(_("syntax conceal on"));
     } else {
-      MSG(_("syn conceal off"));
+      MSG(_("syntax conceal off"));
     }
   } else if (STRNICMP(arg, "on", 2) == 0 && next - arg == 2) {
     curwin->w_s->b_syn_conceal = true;
@@ -3425,9 +3425,9 @@ static void syn_cmd_off(exarg_T *eap, int syncing)
 static void syn_cmd_onoff(exarg_T *eap, char *name)
   FUNC_ATTR_NONNULL_ALL
 {
-  did_syntax_onoff = true;
   eap->nextcmd = check_nextcmd(eap->arg);
   if (!eap->skip) {
+    did_syntax_onoff = true;
     char buf[100];
     memcpy(buf, "so ", 4);
     vim_snprintf(buf + 3, sizeof(buf) - 3, SYNTAX_FNAME, name);
