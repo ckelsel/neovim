@@ -85,6 +85,14 @@ endif()
 
 option(ENABLE_LIBINTL "enable libintl" ON)
 option(ENABLE_LIBICONV "enable libiconv" ON)
+if (MINGW)
+  # Disable LTO by default as it may not compile
+  # See https://github.com/Alexpux/MINGW-packages/issues/3516
+  # and https://github.com/neovim/neovim/pull/8654#issuecomment-402316672
+  option(ENABLE_LTO "enable link time optimization" OFF)
+else()
+  option(ENABLE_LTO "enable link time optimization" ON)
+endif()
 
 # Set default build type.
 if(NOT CMAKE_BUILD_TYPE)
@@ -105,9 +113,9 @@ set(NVIM_VERSION_PATCH 2)
 set(NVIM_VERSION_PRERELEASE "-dev") # for package maintainers
 
 # API level
-set(NVIM_API_LEVEL 4)         # Bump this after any API change.
+set(NVIM_API_LEVEL 5)         # Bump this after any API change.
 set(NVIM_API_LEVEL_COMPAT 0)  # Adjust this after a _breaking_ API change.
-set(NVIM_API_PRERELEASE false)
+set(NVIM_API_PRERELEASE true)
 
 file(TO_CMAKE_PATH ${CMAKE_CURRENT_LIST_DIR}/.git FORCED_GIT_DIR)
 include(GetGitRevisionDescription)

@@ -45,6 +45,7 @@
 #include "nvim/fold.h"
 #include "nvim/getchar.h"
 #include "nvim/hashtab.h"
+#include "nvim/highlight.h"
 #include "nvim/indent.h"
 #include "nvim/indent_c.h"
 #include "nvim/main.h"
@@ -504,14 +505,20 @@ void close_buffer(win_T *win, buf_T *buf, int action, int abort_if_last)
 
   int nwindows = buf->b_nwindows;
 
-  /* decrease the link count from windows (unless not in any window) */
-  if (buf->b_nwindows > 0)
-    --buf->b_nwindows;
+  // decrease the link count from windows (unless not in any window)
+  if (buf->b_nwindows > 0) {
+    buf->b_nwindows--;
+  }
+
+  if (diffopt_hiddenoff() && !unload_buf && buf->b_nwindows == 0) {
+    diff_buf_delete(buf);   // Clear 'diff' for hidden buffer.
+  }
 
   /* Return when a window is displaying the buffer or when it's not
    * unloaded. */
-  if (buf->b_nwindows > 0 || !unload_buf)
+  if (buf->b_nwindows > 0 || !unload_buf) {
     return;
+  }
 
   if (buf->terminal) {
     terminal_close(buf->terminal, NULL);
@@ -3219,10 +3226,11 @@ int build_stl_str_hl(
   // Get the byte value now, in case we need it below. This is more
   // efficient than making a copy of the line.
   int byteval;
-  if (wp->w_cursor.col > (colnr_T)STRLEN(line_ptr))
+  if (wp->w_cursor.col > (colnr_T)STRLEN(line_ptr)) {
     byteval = 0;
-  else
-    byteval = (*mb_ptr2char)(line_ptr + wp->w_cursor.col);
+  } else {
+    byteval = utf_ptr2char(line_ptr + wp->w_cursor.col);
+  }
 
   int groupdepth = 0;
 
@@ -3602,7 +3610,7 @@ int build_stl_str_hl(
 
       // Store the current buffer number as a string variable
       vim_snprintf((char *)tmp, sizeof(tmp), "%d", curbuf->b_fnum);
-      set_internal_string_var((char_u *)"actual_curbuf", tmp);
+      set_internal_string_var((char_u *)"g:actual_curbuf", tmp);
 
       buf_T *o_curbuf = curbuf;
       win_T *o_curwin = curwin;
@@ -4419,7 +4427,7 @@ do_arg_all (
           if (i < alist->al_ga.ga_len
               && (AARGLIST(alist)[i].ae_fnum == buf->b_fnum
                   || path_full_compare(alist_name(&AARGLIST(alist)[i]),
-                      buf->b_ffname, TRUE) & kEqualFiles)) {
+                                       buf->b_ffname, true) & kEqualFiles)) {
             int weight = 1;
 
             if (old_curtab == curtab) {

@@ -1365,11 +1365,11 @@ recover_names (
      */
     if (curbuf->b_ml.ml_mfp != NULL
         && (p = curbuf->b_ml.ml_mfp->mf_fname) != NULL) {
-      for (int i = 0; i < num_files; ++i)
-        if (path_full_compare(p, files[i], TRUE) & kEqualFiles) {
-          /* Remove the name from files[i].  Move further entries
-           * down.  When the array becomes empty free it here, since
-           * FreeWild() won't be called below. */
+      for (int i = 0; i < num_files; i++) {
+        if (path_full_compare(p, files[i], true) & kEqualFiles) {
+          // Remove the name from files[i].  Move further entries
+          // down.  When the array becomes empty free it here, since
+          // FreeWild() won't be called below.
           xfree(files[i]);
           if (--num_files == 0)
             xfree(files);
@@ -1377,6 +1377,7 @@ recover_names (
             for (; i < num_files; ++i)
               files[i] = files[i + 1];
         }
+      }
     }
     if (nr > 0) {
       file_count += num_files;
@@ -2377,7 +2378,7 @@ static int ml_delete_int(buf_T *buf, linenr_T lnum, int message)
         )
       set_keep_msg((char_u *)_(no_lines_msg), 0);
 
-    i = ml_replace((linenr_T)1, (char_u *)"", TRUE);
+    i = ml_replace((linenr_T)1, (char_u *)"", true);
     buf->b_ml.ml_flags |= ML_EMPTY;
 
     return i;
@@ -3524,17 +3525,16 @@ static int b0_magic_wrong(ZERO_BL *b0p)
  *		== 0   == 0	OK	FAIL	TRUE
  *
  * current file doesn't exist, inode for swap unknown, both file names not
- * available -> probably same file
- *		== 0   == 0    FAIL	FAIL	FALSE
+ * available -> compare file names
+ *		== 0   == 0    FAIL	FAIL	fname_c != fname_s
  *
  * Only the last 32 bits of the inode will be used. This can't be changed
  * without making the block 0 incompatible with 32 bit versions.
  */
 
-static int
-fnamecmp_ino (
-    char_u *fname_c,               /* current file name */
-    char_u *fname_s,               /* file name from swap file */
+static bool fnamecmp_ino(
+    char_u *fname_c,              // current file name
+    char_u *fname_s,              // file name from swap file
     long ino_block0
 )
 {
@@ -3575,11 +3575,13 @@ fnamecmp_ino (
 
   /*
    * Can't compare inodes or file names, guess that the files are different,
-   * unless both appear not to exist at all.
+   * unless both appear not to exist at all, then compare with the file name
+   * in the swap file.
    */
-  if (ino_s == 0 && ino_c == 0 && retval_c == FAIL && retval_s == FAIL)
-    return FALSE;
-  return TRUE;
+  if (ino_s == 0 && ino_c == 0 && retval_c == FAIL && retval_s == FAIL) {
+    return STRCMP(fname_c, fname_s) != 0;
+  }
+  return true;
 }
 
 /*
