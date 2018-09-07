@@ -351,12 +351,8 @@ static void remote_ui_hl_attr_define(UI *ui, Integer id, HlAttrs rgb_attrs,
   Array args = ARRAY_DICT_INIT;
 
   ADD(args, INTEGER_OBJ(id));
-
-  Dictionary rgb_hl = hlattrs2dict(&rgb_attrs, true);
-  ADD(args, DICTIONARY_OBJ(rgb_hl));
-
-  Dictionary cterm_hl = hlattrs2dict(&cterm_attrs, false);
-  ADD(args, DICTIONARY_OBJ(cterm_hl));
+  ADD(args, DICTIONARY_OBJ(hlattrs2dict(rgb_attrs, true)));
+  ADD(args, DICTIONARY_OBJ(hlattrs2dict(cterm_attrs, false)));
 
   if (ui->ui_ext[kUIHlState]) {
     ADD(args, ARRAY_OBJ(copy_array(info)));
@@ -372,21 +368,12 @@ static void remote_ui_highlight_set(UI *ui, int id)
   Array args = ARRAY_DICT_INIT;
   UIData *data = ui->data;
 
-  HlAttrs attrs = HLATTRS_INIT;
 
   if (data->hl_id == id) {
     return;
   }
   data->hl_id = id;
-
-  if (id != 0) {
-    HlAttrs *aep = syn_attr2entry(id);
-    if (aep) {
-      attrs = *aep;
-    }
-  }
-
-  Dictionary hl = hlattrs2dict(&attrs, ui->rgb);
+  Dictionary hl = hlattrs2dict(syn_attr2entry(id), ui->rgb);
 
   ADD(args, DICTIONARY_OBJ(hl));
   push_call(ui, "highlight_set", args);
@@ -514,18 +501,15 @@ static void remote_ui_flush(UI *ui)
   }
 }
 
-static void remote_ui_cmdline_show(UI *ui, Array args)
+static Array translate_contents(UI *ui, Array contents)
 {
-  Array new_args = ARRAY_DICT_INIT;
-  Array contents = args.items[0].data.array;
   Array new_contents = ARRAY_DICT_INIT;
   for (size_t i = 0; i < contents.size; i++) {
     Array item = contents.items[i].data.array;
     Array new_item = ARRAY_DICT_INIT;
     int attr = (int)item.items[0].data.integer;
     if (attr) {
-      HlAttrs *aep = syn_attr2entry(attr);
-      Dictionary rgb_attrs = hlattrs2dict(aep, ui->rgb ? kTrue : kFalse);
+      Dictionary rgb_attrs = hlattrs2dict(syn_attr2entry(attr), ui->rgb);
       ADD(new_item, DICTIONARY_OBJ(rgb_attrs));
     } else {
       ADD(new_item, DICTIONARY_OBJ((Dictionary)ARRAY_DICT_INIT));
@@ -533,23 +517,48 @@ static void remote_ui_cmdline_show(UI *ui, Array args)
     ADD(new_item, copy_object(item.items[1]));
     ADD(new_contents, ARRAY_OBJ(new_item));
   }
-  ADD(new_args, ARRAY_OBJ(new_contents));
+  return new_contents;
+}
+
+static Array translate_firstarg(UI *ui, Array args)
+{
+  Array new_args = ARRAY_DICT_INIT;
+  Array contents = args.items[0].data.array;
+
+  ADD(new_args, ARRAY_OBJ(translate_contents(ui, contents)));
   for (size_t i = 1; i < args.size; i++) {
     ADD(new_args, copy_object(args.items[i]));
   }
-  push_call(ui, "cmdline_show", new_args);
+  return new_args;
 }
 
 static void remote_ui_event(UI *ui, char *name, Array args, bool *args_consumed)
 {
   if (!ui->ui_ext[kUINewgrid]) {
-    // the representation of cmdline_show changed, translate back
+    // the representation of highlights in cmdline changed, translate back
+    // never consumes args
     if (strequal(name, "cmdline_show")) {
-      remote_ui_cmdline_show(ui, args);
-      // never consumes args
+      Array new_args = translate_firstarg(ui, args);
+      push_call(ui, name, new_args);
+      return;
+    } else if (strequal(name, "cmdline_block_show")) {
+      Array new_args = ARRAY_DICT_INIT;
+      Array block = args.items[0].data.array;
+      Array new_block = ARRAY_DICT_INIT;
+      for (size_t i = 0; i < block.size; i++) {
+        ADD(new_block,
+            ARRAY_OBJ(translate_contents(ui, block.items[i].data.array)));
+      }
+      ADD(new_args, ARRAY_OBJ(new_block));
+      push_call(ui, name, new_args);
+      return;
+    } else if (strequal(name, "cmdline_block_append")) {
+      Array new_args = translate_firstarg(ui, args);
+      push_call(ui, name, new_args);
       return;
     }
   }
+
   Array my_args = ARRAY_DICT_INIT;
   // Objects are currently single-reference
   // make a copy, but only if necessary

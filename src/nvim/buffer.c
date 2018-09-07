@@ -252,7 +252,7 @@ open_buffer (
     msg_silent = old_msg_silent;
 
     // Help buffer is filtered.
-    if (curbuf->b_help) {
+    if (bt_help(curbuf)) {
       fix_help_buffer();
     }
   } else if (read_stdin) {
@@ -295,6 +295,11 @@ open_buffer (
     unchanged(curbuf, false);
   }
   save_file_ff(curbuf);                 // keep this fileformat
+
+  // Set last_changedtick to avoid triggering a TextChanged autocommand right
+  // after it was added.
+  curbuf->b_last_changedtick = buf_get_changedtick(curbuf);
+  curbuf->b_last_changedtick_pum = buf_get_changedtick(curbuf);
 
   /* require "!" to overwrite the file, because it wasn't read completely */
   if (aborting())
@@ -836,8 +841,8 @@ void goto_buffer(exarg_T *eap, int start, int dir, int count)
      * aborting() returns FALSE when closing a window. */
     enter_cleanup(&cs);
 
-    /* Quitting means closing the split window, nothing else. */
-    win_close(curwin, TRUE);
+    // Quitting means closing the split window, nothing else.
+    win_close(curwin, true);
     swap_exists_action = SEA_NONE;
     swap_exists_did_quit = TRUE;
 
@@ -2654,9 +2659,8 @@ buf_T *setaltfname(char_u *ffname, char_u *sfname, linenr_T lnum)
  * Get alternate file name for current window.
  * Return NULL if there isn't any, and give error message if requested.
  */
-char_u *
-getaltfname (
-    int errmsg                     /* give error message */
+char_u * getaltfname(
+    bool errmsg                   // give error message
 )
 {
   char_u      *fname;
@@ -4647,10 +4651,10 @@ void ex_buffer_all(exarg_T *eap)
           && !ONE_WINDOW
           && !(wp->w_closing || wp->w_buffer->b_locked > 0)
           ) {
-        win_close(wp, FALSE);
-        wpnext = firstwin;              /* just in case an autocommand does
-                                           something strange with windows */
-        tpnext = first_tabpage;         /* start all over...*/
+        win_close(wp, false);
+        wpnext = firstwin;              // just in case an autocommand does
+                                        // something strange with windows
+        tpnext = first_tabpage;         // start all over...
         open_wins = 0;
       } else
         ++open_wins;
@@ -4719,9 +4723,9 @@ void ex_buffer_all(exarg_T *eap)
          * aborting() returns FALSE when closing a window. */
         enter_cleanup(&cs);
 
-        /* User selected Quit at ATTENTION prompt; close this window. */
-        win_close(curwin, TRUE);
-        --open_wins;
+        // User selected Quit at ATTENTION prompt; close this window.
+        win_close(curwin, true);
+        open_wins--;
         swap_exists_action = SEA_NONE;
         swap_exists_did_quit = TRUE;
 
@@ -4924,6 +4928,12 @@ chk_modeline (
   xfree(linecopy);
 
   return retval;
+}
+
+// Return true if "buf" is a help buffer.
+bool bt_help(const buf_T *const buf)
+{
+  return buf != NULL && buf->b_help;
 }
 
 /*

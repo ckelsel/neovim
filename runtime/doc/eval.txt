@@ -1528,7 +1528,7 @@ v:event		Dictionary of event data for the current |autocommand|.  Valid
 			KEY		DESCRIPTION ~
 			abort		Whether the event triggered during
 					an aborting condition (e.g. |c_Esc| or
-					|c_CTRL-c| for |CmdlineLeave|).
+					|c_CTRL-C| for |CmdlineLeave|).
 			cmdlevel	Level of cmdline.
 			cmdtype		Type of cmdline, |cmdline-char|.
 			cwd		Current working directory.
@@ -2336,6 +2336,7 @@ tolower({expr})			String	the String {expr} switched to lowercase
 toupper({expr})			String	the String {expr} switched to uppercase
 tr({src}, {fromstr}, {tostr})	String	translate chars of {src} in {fromstr}
 					to chars in {tostr}
+trim({text}[, {mask}]) 		String	trim characters in {mask} from {text}
 trunc({expr})			Float	truncate Float {expr}
 type({name})			Number	type of variable {name}
 undofile({name})		String	undo file name for {name}
@@ -2351,6 +2352,7 @@ win_getid([{win} [, {tab}]])	Number	get |window-ID| for {win} in {tab}
 win_gotoid({expr})		Number	go to |window-ID| {expr}
 win_id2tabwin({expr})		List	get tab and window nr from |window-ID|
 win_id2win({expr})		Number	get window nr from |window-ID|
+win_screenpos({nr})		List	get screen position of window {nr}
 winbufnr({nr})			Number	buffer number of window {nr}
 wincol()			Number	window column of the cursor
 winheight({nr})			Number	height of window {nr}
@@ -3228,8 +3230,7 @@ executable({expr})					*executable()*
 		On Windows it only checks if the file exists and
 		is not a directory, not if it's really executable.
 		On Windows an executable in the same directory as Vim is
-		always found.  Since this directory is added to $PATH it
-		should also work to execute it |win32-PATH|.
+		always found (it is added to $PATH at |startup|).
 		The result is a Number:
 			1	exists
 			0	does not exist
@@ -4078,6 +4079,7 @@ getcompletion({pat}, {type} [, {filtered}])		*getcompletion()*
 		specifies what for.  The following completion types are
 		supported:
 
+		arglist		file names in argument list
 		augroup		autocmd groups
 		buffer		buffer names
 		behave		:behave suboptions
@@ -4098,6 +4100,7 @@ getcompletion({pat}, {type} [, {filtered}])		*getcompletion()*
 		highlight	highlight groups
 		history		:history suboptions
 		locale		locale names (as output of locale -a)
+		mapclear        buffer argument
 		mapping		mapping name
 		menu		menus
 		messages	|:messages| suboptions
@@ -4470,8 +4473,10 @@ getwininfo([{winid}])					*getwininfo()*
 			variables	a reference to the dictionary with
 					window-local variables
 			width		window width
+			wincol		leftmost screen column of the window
 			winid		|window-ID|
 			winnr		window number
+			winrow		topmost screen column of the window
 
 		To obtain all window-local variables use: >
 			gettabwinvar({tabnr}, {winnr}, '&')
@@ -4803,7 +4808,7 @@ input({opts})
 		where
 			hl_start_col is the first highlighted column,
 			hl_end_col is the last highlighted column (+ 1!),
-			hl_group is |:hl| group used for highlighting.
+			hl_group is |:hi| group used for highlighting.
 					      *E5403* *E5404* *E5405* *E5406*
 		Both hl_start_col and hl_end_col + 1 must point to the start
 		of the multibyte character (highlighting must not break
@@ -5008,7 +5013,7 @@ jobstart({cmd}[, {opts}])				*jobstart()*
 		was used) to send data to stdin and |chanclose()| to close stdio
 		streams without stopping the job explicitly.
 
-		See |job-control| and |rpc|.
+		See |job-control| and |RPC|.
 
 		NOTE: on Windows if {cmd} is a List:
 		  - cmd[0] must be an executable (not a "built-in"). If it is
@@ -5050,7 +5055,7 @@ jobstart({cmd}[, {opts}])				*jobstart()*
 		  - The channel ID on success
 		  - 0 on invalid arguments
 		  - -1 if {cmd}[0] is not executable.
-		See |job-control|, |channels|, and |msgpack-rpc| for more information.
+		See also |job-control|, |channel|, |msgpack-rpc|.
 
 jobstop({id})						*jobstop()*
 		Stop |job-id| {id} by sending SIGTERM to the job process. If
@@ -6384,11 +6389,9 @@ rpcstart({prog}[, {argv}])				   {Nvim} *rpcstart()*
 			:let id = jobstart(['prog', 'arg1', 'arg2'], {'rpc': v:true})
 
 rpcstop({channel})					    {Nvim} *rpcstop()*
-		Deprecated. This function was used to stop a job with |rpc|
-		channel, and additionally closed rpc sockets.  Instead use
-		|jobstop()| to stop any job, and |chanclose|(id, "rpc") to close
-		rpc communication without stopping the job. Use |chanclose|(id)
-		to close any socket.
+		Deprecated. Instead use |jobstop()| to stop any job, and
+		chanclose(id, "rpc") to close RPC communication without
+		stopping the job. Use chanclose(id) to close any socket.
 
 screenattr({row}, {col})					*screenattr()*
 		Like |screenchar()|, but return the attribute.  This is a rather
@@ -6848,10 +6851,12 @@ setpos({expr}, {list})
 
 
 setqflist({list} [, {action}[, {what}]])		*setqflist()*
-		Create or replace or add to the quickfix list using the items
-		in {list}.  Each item in {list} is a dictionary.
-		Non-dictionary items in {list} are ignored.  Each dictionary
-		item can contain the following entries:
+		Create or replace or add to the quickfix list.
+		
+		When {what} is not present, use the items in {list}.  Each
+		item must be a dictionary.  Non-dictionary items in {list} are
+		ignored.  Each dictionary item can contain the following
+		entries:
 
 		    bufnr	buffer number; must be the number of a valid
 				buffer
@@ -6896,7 +6901,10 @@ setqflist({list} [, {action}[, {what}]])		*setqflist()*
 			freed.
 
 		If {action} is not present or is set to ' ', then a new list
-		is created.
+		is created. The new quickfix list is added after the current
+		quickfix list in the stack and all the following lists are
+		freed. To add a new quickfix list at the end of the stack,
+		set "nr" in {what} to '$'.
 
 		If {title} is given, it will be used to set |w:quickfix_title|
 		after opening the quickfix window.
@@ -6906,6 +6914,10 @@ setqflist({list} [, {action}[, {what}]])		*setqflist()*
 		argument is ignored.  The following items can be specified in
 		{what}:
 		    context	any Vim type can be stored as a context
+		    text	use 'errorformat' to extract items from the
+				text and add the resulting entries to the
+				quickfix list {nr}.  The value can be a string
+				with one line or a list with multiple lines.
 		    items	list of quickfix entries. Same as the {list}
 				argument.
 		    nr		list number in the quickfix stack; zero
@@ -7962,6 +7974,22 @@ tr({src}, {fromstr}, {tostr})				*tr()*
 			echo tr("<blob>", "<>", "{}")
 <		returns "{blob}"
 
+trim({text}[, {mask}])						*trim()*
+		Return {text} as a String where any character in {mask} is
+		removed from the beginning and  end of {text}.
+		If {mask} is not given, {mask} is all characters up to 0x20,
+		which includes Tab, space, NL and CR, plus the non-breaking
+		space character 0xa0.
+		This code deals with multibyte characters properly.
+
+		Examples: >
+			echo trim("  \r\t\t\r RESERVE \t \t\n\x0B\x0B")."_TAIL"
+<		returns "RESERVE_TAIL" >
+			echo trim("needrmvRESERVEnnneeedddrrmmmmvv", "ednmrv")
+<		returns "RESERVE" >
+			echo trim("rm<blob1><blob2><any_chars>rrmm<blob1><blob2><blob2>", "rm<blob1><blob2>")
+<		returns "any_chas"
+
 trunc({expr})							*trunc()*
 		Return the largest integral value with magnitude less than or
 		equal to {expr} as a |Float| (truncate towards zero).
@@ -8163,6 +8191,14 @@ win_id2tabwin({expr}					*win_id2tabwin()*
 win_id2win({expr})					*win_id2win()*
 		Return the window number of window with ID {expr}.
 		Return 0 if the window cannot be found in the current tabpage.
+
+win_screenpos({nr})					*win_screenpos()*
+		Return the screen position of window {nr} as a list with two
+		numbers: [row, col].  The first window always has position
+		[1, 1].
+		{nr} can be the window number or the |window-ID|.
+		Return [0, 0] if the window cannot be found in the current
+		tabpage.
 
 							*winbufnr()*
 winbufnr({nr})	The result is a Number, which is the number of the buffer
@@ -8857,9 +8893,6 @@ And you will get an error message every time.
 Also note that if you have two script files, and one calls a function in the
 other and vice versa, before the used function is defined, it won't work.
 Avoid using the autoload functionality at the toplevel.
-
-Hint: If you distribute a bunch of scripts you can pack them together with the
-|vimball| utility.  Also read the user manual |distribute-script|.
 
 ==============================================================================
 6. Curly braces names					*curly-braces-names*
@@ -10732,7 +10765,7 @@ Group                              Default link            Colored expression ~
                                                            |expr-entry|
 
 *hl-NvimColon*                       Delimiter               `:` in |dict| literal
-*hl-NvimComma*                       Delimiter               `,` in |dict|/|list|
+*hl-NvimComma*                       Delimiter               `,` in |dict| or |list|
                                                            literal or
                                                            |expr-function|
 *hl-NvimArrow*                       Delimiter               `->` in |lambda|

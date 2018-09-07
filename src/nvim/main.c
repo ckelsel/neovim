@@ -605,9 +605,14 @@ void getout(int exitval)
 
         buf_T *buf = wp->w_buffer;
         if (buf_get_changedtick(buf) != -1) {
+          bufref_T bufref;
+
+          set_bufref(&bufref, buf);
           apply_autocmds(EVENT_BUFWINLEAVE, buf->b_fname,
                          buf->b_fname, false, buf);
-          buf_set_changedtick(buf, -1);  // note that we did it already
+          if (bufref_valid(&bufref)) {
+            buf_set_changedtick(buf, -1);  // note that we did it already
+          }
           // start all over, autocommands may mess up the lists
           next_tp = first_tabpage;
           break;
@@ -887,6 +892,7 @@ static void command_line_scan(mparm_T *parmp)
           set_option_value("rl", 1L, NULL, 0);
           break;
         }
+        case '?':    // "-?" give help message (for MS-Windows)
         case 'h': {  // "-h" give help message
           usage();
           mch_exit(0);
@@ -1534,7 +1540,7 @@ static void edit_buffers(mparm_T *parmp, char_u *cwd)
 {
   int arg_idx;                          /* index in argument list */
   int i;
-  int advance = TRUE;
+  bool advance = true;
   win_T       *win;
 
   /*
@@ -1545,8 +1551,8 @@ static void edit_buffers(mparm_T *parmp, char_u *cwd)
 
   /* When w_arg_idx is -1 remove the window (see create_windows()). */
   if (curwin->w_arg_idx == -1) {
-    win_close(curwin, TRUE);
-    advance = FALSE;
+    win_close(curwin, true);
+    advance = false;
   }
 
   arg_idx = 1;
@@ -1556,9 +1562,9 @@ static void edit_buffers(mparm_T *parmp, char_u *cwd)
     }
     // When w_arg_idx is -1 remove the window (see create_windows()).
     if (curwin->w_arg_idx == -1) {
-      ++arg_idx;
-      win_close(curwin, TRUE);
-      advance = FALSE;
+      arg_idx++;
+      win_close(curwin, true);
+      advance = false;
       continue;
     }
 
@@ -1573,7 +1579,7 @@ static void edit_buffers(mparm_T *parmp, char_u *cwd)
         win_enter(curwin->w_next, false);
       }
     }
-    advance = TRUE;
+    advance = true;
 
     // Only open the file if there is no file in this window yet (that can
     // happen when vimrc contains ":sall").
@@ -1592,8 +1598,8 @@ static void edit_buffers(mparm_T *parmp, char_u *cwd)
           did_emsg = FALSE;             /* avoid hit-enter prompt */
           getout(1);
         }
-        win_close(curwin, TRUE);
-        advance = FALSE;
+        win_close(curwin, true);
+        advance = false;
       }
       if (arg_idx == GARGCOUNT - 1)
         arg_had_last = TRUE;

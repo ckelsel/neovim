@@ -16,6 +16,7 @@
 #include "nvim/ascii.h"
 #include "nvim/syntax.h"
 #include "nvim/charset.h"
+#include "nvim/cursor_shape.h"
 #include "nvim/eval.h"
 #include "nvim/ex_cmds2.h"
 #include "nvim/ex_docmd.h"
@@ -1725,16 +1726,12 @@ static int syn_current_attr(
        */
       if (do_keywords) {
         line = syn_getcurline();
-        if (vim_iswordp_buf(line + current_col, syn_buf)
-            && (current_col == 0
-                || !vim_iswordp_buf(line + current_col - 1
-                    - (has_mbyte
-                       ? (*mb_head_off)(line, line + current_col - 1)
-                       : 0)
-                    , syn_buf))) {
-          syn_id = check_keyword_id(line, (int)current_col,
-              &endcol, &flags, &next_list, cur_si,
-              &cchar);
+        const char_u *cur_pos = line + current_col;
+        if (vim_iswordp_buf(cur_pos, syn_buf)
+            && (current_col == 0 || !vim_iswordp_buf(
+                cur_pos - 1 - utf_head_off(line, cur_pos - 1), syn_buf))) {
+          syn_id = check_keyword_id(line, (int)current_col, &endcol, &flags,
+                                    &next_list, cur_si, &cchar);
           if (syn_id != 0) {
             push_current_state(KEYWORD_IDX);
             {
@@ -7228,7 +7225,6 @@ static void set_hl_attr(int idx)
   HlAttrs at_en = HLATTRS_INIT;
   struct hl_group     *sgp = HL_TABLE() + idx;
 
-
   at_en.cterm_ae_attr = sgp->sg_cterm;
   at_en.cterm_fg_color = sgp->sg_cterm_fg;
   at_en.cterm_bg_color = sgp->sg_cterm_bg;
@@ -7241,6 +7237,11 @@ static void set_hl_attr(int idx)
   at_en.rgb_sp_color = sgp->sg_rgb_sp_name ? sgp->sg_rgb_sp : -1;
 
   sgp->sg_attr = hl_get_syn_attr(idx+1, at_en);
+
+  // a cursor style uses this syn_id, make sure its atribute is updated.
+  if (cursor_mode_uses_syn_id(idx+1)) {
+    ui_mode_info_set();
+  }
 }
 
 /// Lookup a highlight group name and return its ID.
