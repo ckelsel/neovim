@@ -775,7 +775,7 @@ static int insert_handle_key(InsertState *s)
     if (echeck_abbr(ESC + ABBR_OFF)) {
       break;
     }
-  // FALLTHROUGH
+    FALLTHROUGH;
 
   case Ctrl_C:        // End input mode
     if (s->c == Ctrl_C && cmdwin_type != 0) {
@@ -851,7 +851,7 @@ static int insert_handle_key(InsertState *s)
     if (mod_mask != MOD_MASK_CTRL) {
       goto normalchar;
     }
-  // FALLTHROUGH
+    FALLTHROUGH;
   case K_ZERO:        // Insert the previously inserted text.
   case NUL:
   case Ctrl_A:
@@ -890,7 +890,7 @@ static int insert_handle_key(InsertState *s)
       insert_do_complete(s);
       break;
     }
-  // FALLTHROUGH
+    FALLTHROUGH;
 
   case Ctrl_T:        // Make indent one shiftwidth greater.
     if (s->c == Ctrl_T && ctrl_x_mode == CTRL_X_THESAURUS) {
@@ -1062,7 +1062,7 @@ static int insert_handle_key(InsertState *s)
 
   case K_S_TAB:       // When not mapped, use like a normal TAB
     s->c = TAB;
-  // FALLTHROUGH
+    FALLTHROUGH;
 
   case TAB:           // TAB or Complete patterns along path
     if (ctrl_x_mode == CTRL_X_PATH_PATTERNS) {
@@ -1078,7 +1078,7 @@ static int insert_handle_key(InsertState *s)
 
   case K_KENTER:      // <Enter>
     s->c = CAR;
-  // FALLTHROUGH
+    FALLTHROUGH;
   case CAR:
   case NL:
     // In a quickfix window a <CR> jumps to the error under the
@@ -1157,7 +1157,7 @@ static int insert_handle_key(InsertState *s)
       }
       goto normalchar;
     }
-  // FALLTHROUGH
+    FALLTHROUGH;
 
   case Ctrl_P:        // Do previous/next pattern completion
   case Ctrl_N:
@@ -1534,12 +1534,14 @@ void edit_putchar(int c, int highlight)
 void edit_unputchar(void)
 {
   if (pc_status != PC_STATUS_UNSET && pc_row >= msg_scrolled) {
-    if (pc_status == PC_STATUS_RIGHT)
-      ++curwin->w_wcol;
-    if (pc_status == PC_STATUS_RIGHT || pc_status == PC_STATUS_LEFT)
-      redrawWinline(curwin->w_cursor.lnum, FALSE);
-    else
+    if (pc_status == PC_STATUS_RIGHT) {
+      curwin->w_wcol++;
+    }
+    if (pc_status == PC_STATUS_RIGHT || pc_status == PC_STATUS_LEFT) {
+      redrawWinline(curwin, curwin->w_cursor.lnum, false);
+    } else {
       screen_puts(pc_bytes, pc_row - msg_scrolled, pc_col, pc_attr);
+    }
   }
 }
 
@@ -1576,7 +1578,7 @@ static void undisplay_dollar(void)
 {
   if (dollar_vcol >= 0) {
     dollar_vcol = -1;
-    redrawWinline(curwin->w_cursor.lnum, FALSE);
+    redrawWinline(curwin, curwin->w_cursor.lnum, false);
   }
 }
 
@@ -3267,7 +3269,7 @@ static bool ins_compl_prep(int c)
         compl_cont_status |= CONT_LOCAL;
       else if (compl_cont_mode != 0)
         compl_cont_status &= ~CONT_LOCAL;
-    /* FALLTHROUGH */
+      FALLTHROUGH;
     default:
       /* If we have typed at least 2 ^X's... for modes != 0, we set
        * compl_cont_status = 0 (eg, as if we had just started ^X
@@ -4965,16 +4967,16 @@ static unsigned quote_meta(char_u *dest, char_u *src, int len)
       if (ctrl_x_mode == CTRL_X_DICTIONARY
           || ctrl_x_mode == CTRL_X_THESAURUS)
         break;
-      // fallthrough
+      FALLTHROUGH;
     case '~':
       if (!p_magic)             /* quote these only if magic is set */
         break;
-      // fallthrough
+      FALLTHROUGH;
     case '\\':
       if (ctrl_x_mode == CTRL_X_DICTIONARY
           || ctrl_x_mode == CTRL_X_THESAURUS)
         break;
-      // fallthrough
+      FALLTHROUGH;
     case '^':                   // currently it's not needed.
     case '$':
       m++;
@@ -5909,7 +5911,7 @@ static void check_spell_redraw(void)
     linenr_T lnum = spell_redraw_lnum;
 
     spell_redraw_lnum = 0;
-    redrawWinline(lnum, FALSE);
+    redrawWinline(curwin, lnum, false);
   }
 }
 
@@ -7368,7 +7370,7 @@ static bool ins_start_select(int c)
   case K_KPAGEDOWN:
     if (!(mod_mask & MOD_MASK_SHIFT))
       break;
-  // FALLTHROUGH
+    FALLTHROUGH;
   case K_S_LEFT:
   case K_S_RIGHT:
   case K_S_UP:

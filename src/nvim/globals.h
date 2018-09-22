@@ -280,13 +280,9 @@ EXTERN int did_wait_return INIT(= FALSE);       /* wait_return() was used and
                                                    nothing written since then */
 EXTERN int need_maketitle INIT(= TRUE);      /* call maketitle() soon */
 
-EXTERN int quit_more INIT(= FALSE);         /* 'q' hit at "--more--" msg */
-#if defined(UNIX) || defined(MACOS_X)
-EXTERN int newline_on_exit INIT(= FALSE);       /* did msg in altern. screen */
-EXTERN int intr_char INIT(= 0);             /* extra interrupt character */
-#endif
-EXTERN int ex_keep_indent INIT(= FALSE);      /* getexmodeline(): keep indent */
-EXTERN int vgetc_busy INIT(= 0);            /* when inside vgetc() then > 0 */
+EXTERN int quit_more INIT(= false);         // 'q' hit at "--more--" msg
+EXTERN int ex_keep_indent INIT(= false);    // getexmodeline(): keep indent
+EXTERN int vgetc_busy INIT(= 0);            // when inside vgetc() then > 0
 
 EXTERN int didset_vim INIT(= FALSE);        /* did set $VIM ourselves */
 EXTERN int didset_vimruntime INIT(= FALSE);        /* idem for $VIMRUNTIME */
@@ -789,7 +785,7 @@ EXTERN int ex_normal_busy INIT(= 0);     // recursiveness of ex_normal()
 EXTERN int ex_normal_lock INIT(= 0);     // forbid use of ex_normal()
 EXTERN int ignore_script INIT(= false);  // ignore script input
 EXTERN int stop_insert_mode;             // for ":stopinsert" and 'insertmode'
-EXTERN int KeyTyped;                     // TRUE if user typed current char
+EXTERN bool KeyTyped;                    // true if user typed current char
 EXTERN int KeyStuffed;                   // TRUE if current char from stuffbuf
 EXTERN int maptick INIT(= 0);            // tick for each non-mapped char
 

@@ -769,17 +769,16 @@ void ml_recover(void)
   called_from_main = (curbuf->b_ml.ml_mfp == NULL);
   attr = HL_ATTR(HLF_E);
 
-  /*
-   * If the file name ends in ".s[uvw][a-z]" we assume this is the swap file.
-   * Otherwise a search is done to find the swap file(s).
-   */
+  // If the file name ends in ".s[a-w][a-z]" we assume this is the swap file.
+  // Otherwise a search is done to find the swap file(s).
   fname = curbuf->b_fname;
   if (fname == NULL)                /* When there is no file name */
     fname = (char_u *)"";
   len = (int)STRLEN(fname);
   if (len >= 4
       && STRNICMP(fname + len - 4, ".s", 2) == 0
-      && vim_strchr((char_u *)"UVWuvw", fname[len - 2]) != NULL
+      && vim_strchr((char_u *)"abcdefghijklmnopqrstuvw",
+                    TOLOWER_ASC(fname[len - 2])) != NULL
       && ASCII_ISALPHA(fname[len - 1])) {
     directly = TRUE;
     fname_used = vim_strsave(fname);     /* make a copy for mf_open() */
@@ -4000,18 +3999,15 @@ void goto_byte(long cnt)
 /// Return 0 otherwise.
 int inc(pos_T *lp)
 {
-  char_u  *p = ml_get_pos(lp);
-
-  if (*p != NUL) {      // still within line, move to next char (may be NUL)
-    if (has_mbyte) {
-      int l = (*mb_ptr2len)(p);
+  // when searching position may be set to end of a line
+  if (lp->col != MAXCOL) {
+    const char_u *const p = ml_get_pos(lp);
+    if (*p != NUL) {  // still within line, move to next char (may be NUL)
+      const int l = utfc_ptr2len(p);
 
       lp->col += l;
-      return (p[l] != NUL) ? 0 : 2;
+      return ((p[l] != NUL) ? 0 : 2);
     }
-    lp->col++;
-    lp->coladd = 0;
-    return (p[1] != NUL) ? 0 : 2;
   }
   if (lp->lnum != curbuf->b_ml.ml_line_count) {     // there is a next line
     lp->col = 0;
@@ -4036,20 +4032,32 @@ int incl(pos_T *lp)
 int dec(pos_T *lp)
 {
   lp->coladd = 0;
-  if (lp->col > 0) {            // still within line
+  if (lp->col == MAXCOL) {
+    // past end of line
+    char_u *p = ml_get(lp->lnum);
+    lp->col = (colnr_T)STRLEN(p);
+    lp->col -= utf_head_off(p, p + lp->col);
+    return 0;
+  }
+
+  if (lp->col > 0) {
+    // still within line
     lp->col--;
     char_u *p = ml_get(lp->lnum);
     lp->col -= utf_head_off(p, p + lp->col);
     return 0;
   }
-  if (lp->lnum > 1) {           // there is a prior line
+  if (lp->lnum > 1) {
+    // there is a prior line
     lp->lnum--;
     char_u *p = ml_get(lp->lnum);
     lp->col = (colnr_T)STRLEN(p);
     lp->col -= utf_head_off(p, p + lp->col);
     return 1;
   }
-  return -1;                    // at start of file
+
+  // at start of file
+  return -1;
 }
 
 /// Same as dec(), but skip NUL at the end of non-empty lines.

@@ -496,7 +496,7 @@ typedef enum {
 #define FNE_CHECK_START 2       /* find_name_end(): check name starts with
                                    valid character */
 
-static uint64_t last_timer_id = 0;
+static uint64_t last_timer_id = 1;
 static PMap(uint64_t) *timers = NULL;
 
 /// Dummy va_list for passing to vim_snprintf
@@ -1912,6 +1912,7 @@ static char_u *ex_let_one(char_u *arg, typval_T *const tv,
         if ((opt_type == 1 && *op == '.')
             || (opt_type == 0 && *op != '.')) {
           EMSG2(_(e_letwrong), op);
+          s = NULL;  // don't set the value
         } else {
           if (opt_type == 1) {  // number
             if (*op == '+') {
@@ -4355,7 +4356,7 @@ eval_index(
       if (evaluate) {
         return FAIL;
       }
-      // fallthrough
+      FALLTHROUGH;
     }
     case VAR_STRING:
     case VAR_NUMBER:
@@ -4754,7 +4755,7 @@ static int get_string_tv(char_u **arg, typval_T *rettv, int evaluate)
           name += extra;
           break;
         }
-        // FALLTHROUGH
+        FALLTHROUGH;
 
       default:  MB_COPY_CHAR(p, name);
         break;
@@ -9748,14 +9749,14 @@ static void f_getcwd(typval_T *argvars, typval_T *rettv, FunPtr fptr)
       if (from) {
         break;
       }
-      // fallthrough
+      FALLTHROUGH;
     case kCdScopeTab:
       assert(tp);
       from = tp->tp_localdir;
       if (from) {
         break;
       }
-      // fallthrough
+      FALLTHROUGH;
     case kCdScopeGlobal:
       if (globaldir) {        // `globaldir` is not always set.
         from = globaldir;
@@ -16470,13 +16471,12 @@ static void get_system_output_as_rettv(typval_T *argvars, typval_T *rettv,
   }
 
   if (p_verbose > 3) {
-    char buf[NUMBUFLEN];
-    const char * cmd = tv_get_string_buf(argvars, buf);
-
+    char *cmdstr = shell_argv_to_str(argv);
     verbose_enter_scroll();
-    smsg(_("Calling shell to execute: \"%s\""), cmd);
+    smsg(_("Executing command: \"%s\""), cmdstr);
     msg_puts("\n\n");
     verbose_leave_scroll();
+    xfree(cmdstr);
   }
 
   if (do_profiling == PROF_YES) {

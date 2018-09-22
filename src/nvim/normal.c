@@ -1867,7 +1867,7 @@ void do_pending_operator(cmdarg_T *cap, int old_col, bool gui_yank)
       } else {
         bangredo = true;  // do_bang() will put cmd in redo buffer.
       }
-      // fallthrough
+      FALLTHROUGH;
 
     case OP_INDENT:
     case OP_COLON:
@@ -4202,12 +4202,12 @@ dozet:
       else
         curwin->w_cursor.lnum = curwin->w_botline;
     }
-  /* FALLTHROUGH */
+    FALLTHROUGH;
   case NL:
   case CAR:
   case K_KENTER:
     beginline(BL_WHITE | BL_FIX);
-  /* FALLTHROUGH */
+    FALLTHROUGH;
 
   case 't':   scroll_cursor_top(0, true);
     redraw_later(VALID);
@@ -4216,7 +4216,7 @@ dozet:
 
   /* "z." and "zz": put cursor in middle of screen */
   case '.':   beginline(BL_WHITE | BL_FIX);
-  /* FALLTHROUGH */
+  FALLTHROUGH;
 
   case 'z':   scroll_cursor_halfway(true);
     redraw_later(VALID);
@@ -4234,10 +4234,10 @@ dozet:
       curwin->w_cursor.lnum = 1;
     else
       curwin->w_cursor.lnum = curwin->w_topline - 1;
-  /* FALLTHROUGH */
+    FALLTHROUGH;
   case '-':
     beginline(BL_WHITE | BL_FIX);
-  /* FALLTHROUGH */
+    FALLTHROUGH;
 
   case 'b':   scroll_cursor_bot(0, true);
     redraw_later(VALID);
@@ -4247,7 +4247,7 @@ dozet:
   /* "zH" - scroll screen right half-page */
   case 'H':
     cap->count1 *= curwin->w_width / 2;
-  /* FALLTHROUGH */
+    FALLTHROUGH;
 
   /* "zh" - scroll screen to the right */
   case 'h':
@@ -4263,7 +4263,7 @@ dozet:
 
   /* "zL" - scroll screen left half-page */
   case 'L':   cap->count1 *= curwin->w_width / 2;
-  /* FALLTHROUGH */
+    FALLTHROUGH;
 
   /* "zl" - scroll screen to the left */
   case 'l':
@@ -4480,7 +4480,7 @@ dozet:
       break;
     }
     undo = true;
-  /*FALLTHROUGH*/
+    FALLTHROUGH;
 
   case 'g':     /* "zg": add good word to word list */
   case 'w':     /* "zw": add wrong word to word list */
@@ -5042,7 +5042,10 @@ static void nv_scroll(cmdarg_T *cap)
       curwin->w_cursor.lnum = curbuf->b_ml.ml_line_count;
   }
 
-  cursor_correct();     /* correct for 'so' */
+  // Correct for 'so', except when an operator is pending.
+  if (cap->oap->op_type == OP_NOP) {
+    cursor_correct();
+  }
   beginline(BL_SOL | BL_FIX);
 }
 
@@ -6294,7 +6297,7 @@ static void nv_gomark(cmdarg_T *cap)
   pos_T       *pos;
   int c;
   pos_T old_cursor = curwin->w_cursor;
-  int old_KeyTyped = KeyTyped;              /* getting file may reset it */
+  const bool old_KeyTyped = KeyTyped;       // getting file may reset it
 
   if (cap->cmdchar == 'g')
     c = cap->extra_char;
@@ -6331,7 +6334,7 @@ static void nv_pcmark(cmdarg_T *cap)
 {
   pos_T       *pos;
   linenr_T lnum = curwin->w_cursor.lnum;
-  int old_KeyTyped = KeyTyped;              /* getting file may reset it */
+  const bool old_KeyTyped = KeyTyped;       // getting file may reset it
 
   if (!checkclearopq(cap->oap)) {
     if (cap->cmdchar == 'g')
@@ -6660,7 +6663,7 @@ static void nv_g_cmd(cmdarg_T *cap)
    */
   case K_BS:
     cap->nchar = Ctrl_H;
-  /* FALLTHROUGH */
+    FALLTHROUGH;
   case 'h':
   case 'H':
   case Ctrl_H:
@@ -6726,7 +6729,7 @@ static void nv_g_cmd(cmdarg_T *cap)
    */
   case '^':
     flag = true;
-  /* FALLTHROUGH */
+    FALLTHROUGH;
 
   case '0':
   case 'm':
@@ -6904,7 +6907,7 @@ static void nv_g_cmd(cmdarg_T *cap)
   /* "g'm" and "g`m": jump to mark without setting pcmark */
   case '\'':
     cap->arg = true;
-  /*FALLTHROUGH*/
+    FALLTHROUGH;
   case '`':
     nv_gomark(cap);
     break;
@@ -6962,7 +6965,7 @@ static void nv_g_cmd(cmdarg_T *cap)
   case 'q':
   case 'w':
     oap->cursor_start = curwin->w_cursor;
-  /*FALLTHROUGH*/
+    FALLTHROUGH;
   case '~':
   case 'u':
   case 'U':

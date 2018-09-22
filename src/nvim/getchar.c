@@ -1670,7 +1670,7 @@ static int vgetorpeek(int advance)
     }
     if (c != NUL && !got_int) {
       if (advance) {
-        // KeyTyped = FALSE;  When the command that stuffed something
+        // KeyTyped = false;  When the command that stuffed something
         // was typed, behave like the stuffed command was typed.
         // needed for CTRL-W CTRL-] to open a fold, for example.
         KeyStuffed = true;
@@ -4315,8 +4315,14 @@ char_u * getcmdkeycmd(int promptc, void *cookie, int indent)
       EMSG(e_cmdmap_repeated);
       aborted = true;
     } else if (IS_SPECIAL(c1)) {
-      EMSG2(e_cmdmap_key, get_special_key_name(c1, cmod));
-      aborted = true;
+      if (c1 == K_SNR) {
+        ga_append(&line_ga, (char)K_SPECIAL);
+        ga_append(&line_ga, (char)KS_EXTRA);
+        ga_append(&line_ga, (char)KE_SNR);
+      } else {
+        EMSG2(e_cmdmap_key, get_special_key_name(c1, cmod));
+        aborted = true;
+      }
     } else {
       ga_append(&line_ga, (char)c1);
     }
