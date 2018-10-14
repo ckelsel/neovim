@@ -2486,7 +2486,7 @@ win_line (
   // If this line has a sign with line highlighting set line_attr.
   v = buf_getsigntype(wp->w_buffer, lnum, SIGN_LINEHL);
   if (v != 0) {
-    line_attr = sign_get_attr((int)v, true);
+    line_attr = sign_get_attr((int)v, SIGN_LINEHL);
   }
 
   // Highlight the current line in the quickfix window.
@@ -2794,7 +2794,7 @@ win_line (
                           p_extra = extra;
                           p_extra[n_extra] = NUL;
                       }
-                      char_attr = sign_get_attr(text_sign, FALSE);
+                      char_attr = sign_get_attr(text_sign, SIGN_TEXT);
                   }
               }
           }
@@ -2841,12 +2841,17 @@ win_line (
             c_extra = ' ';
           n_extra = number_width(wp) + 1;
           char_attr = win_hl_attr(wp, HLF_N);
-          // When 'cursorline' is set highlight the line number of
-          // the current line differently.
-          // TODO(vim): Can we use CursorLine instead of CursorLineNr
-          // when CursorLineNr isn't set?
-          if ((wp->w_p_cul || wp->w_p_rnu)
-              && lnum == wp->w_cursor.lnum) {
+
+          int num_sign = buf_getsigntype(wp->w_buffer, lnum, SIGN_NUMHL);
+          if (num_sign != 0) {
+            // :sign defined with "numhl" highlight.
+            char_attr = sign_get_attr(num_sign, SIGN_NUMHL);
+          } else if ((wp->w_p_cul || wp->w_p_rnu)
+                     && lnum == wp->w_cursor.lnum) {
+            // When 'cursorline' is set highlight the line number of
+            // the current line differently.
+            // TODO(vim): Can we use CursorLine instead of CursorLineNr
+            // when CursorLineNr isn't set?
             char_attr = win_hl_attr(wp, HLF_CLN);
           }
         }
@@ -4588,14 +4593,18 @@ void status_redraw_all(void)
   }
 }
 
-/*
- * mark all status lines of the current buffer for redraw
- */
+/// Marks all status lines of the current buffer for redraw.
 void status_redraw_curbuf(void)
 {
+  status_redraw_buf(curbuf);
+}
+
+/// Marks all status lines of the specified buffer for redraw.
+void status_redraw_buf(buf_T *buf)
+{
   FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
-    if (wp->w_status_height != 0 && wp->w_buffer == curbuf) {
-      wp->w_redr_status = TRUE;
+    if (wp->w_status_height != 0 && wp->w_buffer == buf) {
+      wp->w_redr_status = true;
       redraw_later(VALID);
     }
   }

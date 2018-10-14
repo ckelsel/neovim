@@ -884,7 +884,15 @@ void handle_swap_exists(bufref_T *old_curbuf)
       buf = old_curbuf->br_buf;
     }
     if (buf != NULL) {
+      int old_msg_silent = msg_silent;
+
+      if (shortmess(SHM_FILEINFO)) {
+        msg_silent = 1;  // prevent fileinfo message
+      }
       enter_buffer(buf);
+      // restore msg_silent, so that the command line will be shown
+      msg_silent = old_msg_silent;
+
       if (old_tw != curbuf->b_p_tw) {
         check_colorcolumn(curwin);
       }
@@ -4525,9 +4533,10 @@ do_arg_all (
     use_firstwin = true;
   }
 
-  for (i = 0; i < count && i < opened_len && !got_int; ++i) {
-    if (alist == &global_alist && i == global_alist.al_ga.ga_len - 1)
-      arg_had_last = TRUE;
+  for (i = 0; i < count && i < opened_len && !got_int; i++) {
+    if (alist == &global_alist && i == global_alist.al_ga.ga_len - 1) {
+      arg_had_last = true;
+    }
     if (opened[i] > 0) {
       /* Move the already present window to below the current window */
       if (curwin->w_arg_idx != i) {
@@ -5075,13 +5084,16 @@ linenr_T buf_change_sign_type(
     return (linenr_T)0;
 }
 
-int buf_getsigntype(
-        buf_T *buf,
-        linenr_T lnum,
-        int type /* SIGN_ICON, SIGN_TEXT, SIGN_ANY, SIGN_LINEHL */
-        )
+/// Gets a sign from a given line.
+/// In case of multiple signs, returns the most recently placed one.
+///
+/// @param buf Buffer in which to search
+/// @param lnum Line in which to search
+/// @param type Type of sign to look for
+/// @return Identifier of the first matching sign, or 0
+int buf_getsigntype(buf_T *buf, linenr_T lnum, SignType type)
 {
-    signlist_T	*sign;		/* a sign in a b_signlist */
+    signlist_T *sign;  // a sign in a b_signlist
 
     for (sign = buf->b_signlist; sign != NULL; sign = sign->next) {
         if (sign->lnum == lnum
@@ -5089,7 +5101,9 @@ int buf_getsigntype(
                     || (type == SIGN_TEXT
                         && sign_get_text(sign->typenr) != NULL)
                     || (type == SIGN_LINEHL
-                        && sign_get_attr(sign->typenr, TRUE) != 0))) {
+                        && sign_get_attr(sign->typenr, SIGN_LINEHL) != 0)
+                    || (type == SIGN_NUMHL
+                        && sign_get_attr(sign->typenr, SIGN_NUMHL) != 0))) {
             return sign->typenr;
         }
     }

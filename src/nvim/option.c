@@ -1434,7 +1434,7 @@ do_set (
                         || (long *)varp == &p_wcm)
                        && (*arg == '<'
                            || *arg == '^'
-                           || ((!arg[1] || ascii_iswhite(arg[1]))
+                           || (*arg != NUL && (!arg[1] || ascii_iswhite(arg[1]))
                                && !ascii_isdigit(*arg)))) {
               value = string_to_key(arg);
               if (value == 0 && (long *)varp != &p_wcm) {
@@ -2434,7 +2434,7 @@ did_set_string_option (
   int did_chartab = FALSE;
   char_u      **gvarp;
   bool free_oldval = (options[opt_idx].flags & P_ALLOCED);
-  int ft_changed = false;
+  bool value_changed = false;
 
   /* Get the global option to compare with, otherwise we would have to check
    * two values for all local options. */
@@ -3155,11 +3155,13 @@ did_set_string_option (
     if (!valid_filetype(*varp)) {
       errmsg = e_invarg;
     } else {
-      ft_changed = STRCMP(oldval, *varp) != 0;
+      value_changed = STRCMP(oldval, *varp) != 0;
     }
   } else if (gvarp == &p_syn) {
     if (!valid_filetype(*varp)) {
       errmsg = e_invarg;
+    } else {
+      value_changed = STRCMP(oldval, *varp) != 0;
     }
   } else if (varp == &curwin->w_p_winhl) {
     if (!parse_winhl_opt(curwin)) {
@@ -3235,14 +3237,28 @@ did_set_string_option (
      */
     /* When 'syntax' is set, load the syntax of that name */
     if (varp == &(curbuf->b_p_syn)) {
-      apply_autocmds(EVENT_SYNTAX, curbuf->b_p_syn,
-          curbuf->b_fname, TRUE, curbuf);
+      static int syn_recursive = 0;
+
+      syn_recursive++;
+      // Only pass true for "force" when the value changed or not used
+      // recursively, to avoid endless recurrence.
+      apply_autocmds(EVENT_SYNTAX, curbuf->b_p_syn, curbuf->b_fname,
+                     value_changed || syn_recursive == 1, curbuf);
+      syn_recursive--;
     } else if (varp == &(curbuf->b_p_ft)) {
       // 'filetype' is set, trigger the FileType autocommand
-      if (!(opt_flags & OPT_MODELINE) || ft_changed) {
+      // Skip this when called from a modeline and the filetype was
+      // already set to this value.
+      if (!(opt_flags & OPT_MODELINE) || value_changed) {
+        static int ft_recursive = 0;
+
+        ft_recursive++;
         did_filetype = true;
-        apply_autocmds(EVENT_FILETYPE, curbuf->b_p_ft,
-                       curbuf->b_fname, true, curbuf);
+        // Only pass true for "force" when the value changed or not
+        // used recursively, to avoid endless recurrence.
+        apply_autocmds(EVENT_FILETYPE, curbuf->b_p_ft, curbuf->b_fname,
+                       value_changed || ft_recursive == 1, curbuf);
+        ft_recursive--;
         // Just in case the old "curbuf" is now invalid
         if (varp != &(curbuf->b_p_ft)) {
           varp = NULL;
@@ -3705,6 +3721,9 @@ static char *set_bool_option(const int opt_idx, char_u *const varp,
   } else if ((int *)varp == &p_lnr) {
     // 'langnoremap' -> !'langremap'
     p_lrm = !p_lnr;
+  } else if ((int *)varp == &curwin->w_p_cul && !value && old_value) {
+    // 'cursorline'
+    reset_cursorline();
   // 'undofile'
   } else if ((int *)varp == &curbuf->b_p_udf || (int *)varp == &p_udf) {
     // Only take action when the option was set. When reset we do not
@@ -4019,7 +4038,8 @@ static char *set_bool_option(const int opt_idx, char_u *const varp,
 
   options[opt_idx].flags |= P_WAS_SET;
 
-  if (!starting) {
+  // Don't do this while starting up or recursively.
+  if (!starting && *get_vim_var_str(VV_OPTION_TYPE) == NUL) {
     char buf_old[2];
     char buf_new[2];
     char buf_type[7];
@@ -4393,7 +4413,8 @@ static char *set_num_option(int opt_idx, char_u *varp, long value,
 
   options[opt_idx].flags |= P_WAS_SET;
 
-  if (!starting && errmsg == NULL) {
+  // Don't do this while starting up, failure or recursively.
+  if (!starting && errmsg == NULL && *get_vim_var_str(VV_OPTION_TYPE) == NUL) {
     char buf_old[NUMBUFLEN];
     char buf_new[NUMBUFLEN];
     char buf_type[7];
@@ -4426,7 +4447,10 @@ static char *set_num_option(int opt_idx, char_u *varp, long value,
 static void trigger_optionsset_string(int opt_idx, int opt_flags,
                                       char *oldval, char *newval)
 {
-  if (oldval != NULL && newval != NULL) {
+  // Don't do this recursively.
+  if (oldval != NULL
+      && newval != NULL
+      && *get_vim_var_str(VV_OPTION_TYPE) == NUL) {
     char buf_type[7];
 
     vim_snprintf(buf_type, ARRAY_SIZE(buf_type), "%s",
